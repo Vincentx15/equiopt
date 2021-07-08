@@ -2,6 +2,7 @@ import os
 import gzip
 import random
 import numpy as np
+import torch
 
 from seqdataloader_custom import PyfaidxCoordsToVals, SimpleLookup, \
     DownsampleNegativesCoordsBatchProducer, Coordinates, apply_mask
@@ -60,10 +61,7 @@ class ReverseComplementAugmenter(AbstractCoordBatchTransformer):
 class BatchDataset(Dataset):
 
     def __init__(self, TF, seq_len, is_aug,
-                 seed=0,
-                 qc_func=None,
-                 sampleweights_coordstovals=None,
-                 sampleweights_from_inputstargets=None):
+                 seed=0, batch_size=100, ):
 
         inputs_coordstovals = PyfaidxCoordsToVals(
             genome_fasta_path="data/hg19.genome.fa",
@@ -83,7 +81,7 @@ class BatchDataset(Dataset):
             pos_bed_file=pos_bed,
             neg_bed_file=neg_bed,
             target_proportion_positives=target_proportion_positives,
-            batch_size=100,
+            batch_size=batch_size,
             shuffle_before_epoch=True,
             seed=seed)
         coordsbatch_transformer = ReverseComplementAugmenter() if is_aug else None
@@ -92,41 +90,20 @@ class BatchDataset(Dataset):
         self.inputs_coordstovals = inputs_coordstovals
         self.targets_coordstovals = targets_coordstovals
         self.coordsbatch_transformer = coordsbatch_transformer
-        self.sampleweights_coordstovals = sampleweights_coordstovals
-        self.sampleweights_from_inputstargets = \
-            sampleweights_from_inputstargets
-        if sampleweights_coordstovals is not None:
-            assert sampleweights_from_inputstargets is None
-        if sampleweights_from_inputstargets is not None:
-            assert sampleweights_coordstovals is None
-        self.qc_func = qc_func
 
     def __getitem__(self, index):
         coords_batch = self.coordsbatch_producer[index]
         if self.coordsbatch_transformer is not None:
             coords_batch = self.coordsbatch_transformer(coords_batch)
         inputs = self.inputs_coordstovals(coords_batch)
+        inputs = torch.from_numpy(inputs)
+        inputs = torch.transpose(inputs, 1, 2).float()
         if self.targets_coordstovals is not None:
             targets = self.targets_coordstovals(coords_batch)
+            targets = torch.from_numpy(targets).float()
+            return inputs, targets
         else:
-            targets = None
-        if self.qc_func is not None:
-            qc_mask = self.qc_func(inputs=inputs, targets=targets)
-            inputs = apply_mask(tomask=inputs, mask=qc_mask)
-            if targets is not None:
-                targets = apply_mask(tomask=targets, mask=qc_mask)
-        if self.sampleweights_coordstovals is not None:
-            sample_weights = self.sampleweights_coordstovals(coords_batch)
-            return inputs, targets, sample_weights
-        elif self.sampleweights_from_inputstargets is not None:
-            sample_weights = self.sampleweights_from_inputstargets(
-                inputs=inputs, targets=targets)
-            return inputs, targets, sample_weights
-        else:
-            if self.targets_coordstovals is not None:
-                return inputs, targets
-            else:
-                return inputs
+            return inputs
 
     def __len__(self):
         return len(self.coordsbatch_producer)
@@ -138,4 +115,7 @@ class BatchDataset(Dataset):
 if __name__ == '__main__':
     pass
 
-    dataset = BatchDataset(TF='MAX', seq_len=1000, is_aug=False)
+    dataset = BatchDataset(TF='CTCF', seq_len=1000, is_aug=False)
+    print(len(dataset))
+    # for inputs, targets in dataset:
+    #     print(inputs.shape, targets.shape)

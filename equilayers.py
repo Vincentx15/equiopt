@@ -15,7 +15,7 @@ def create_xavier_convparameter(shape):
     :param shape:
     :return:
     """
-    tensor = torch.zeros(size=shape, dtype=torch.double)
+    tensor = torch.zeros(size=shape, dtype=torch.float32)
     torch.nn.init.xavier_normal_(tensor, gain=1.0)
     return torch.nn.Parameter(tensor)
 
@@ -751,7 +751,7 @@ def random_one_hot(size=(2, 100)):
     bs, len = size
     numel = bs * len
     randints_np = np.random.randint(0, 3, size=numel)
-    one_hot_np = np.eye(4)[randints_np]
+    one_hot_np = np.eye(4, dtype=np.float32)[randints_np]
     one_hot_np = np.reshape(one_hot_np, newshape=(bs, len, 4))
     one_hot_torch = torch.from_numpy(one_hot_np)
     one_hot_torch = torch.transpose(one_hot_torch, 1, 2)

@@ -68,11 +68,12 @@ class KerasSequenceApiCoordsBatchProducer(object):
 
 
 class BedFileObj(object):
-    def __init__(self, bed_file, hastitle=False):
-        print("Heads up: coordinates in bed file"
-              + " are assumed to be on the positive strand;"
-              + " if strand in the bed file is improtant to you, please"
-              + " add that feature to SimpleCoordsBatchProducer")
+    def __init__(self, bed_file, hastitle=False, verbose=False):
+        if verbose:
+            print("Heads up: coordinates in bed file"
+                  + " are assumed to be on the positive strand;"
+                  + " if strand in the bed file is important to you, please"
+                  + " add that feature to SimpleCoordsBatchProducer")
         self.bed_file = bed_file
         self.hastitle = hastitle
         self.coords_list = self._read_bed_file()
@@ -423,5 +424,3 @@ class PyfaidxCoordsToVals(AbstractSingleNdarrayCoordsToVals):
             assert len(lengths) == 1, ("All the sequences must be of the same"
                                        + "lengths, but lengths are " + str(lengths))
         return np.array(onehot_seqs)
-
-
