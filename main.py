@@ -64,14 +64,15 @@ def learn(model,
                 all_preds = list()
                 all_targets = list()
                 model.eval()
-                for i, (inputs, targets) in enumerate(test_dataloader):
-                    inputs = inputs.to(gpu_device)
-                    out = model(inputs)
-                    all_preds.append(out.detach().cpu().numpy())
-                    all_targets.append(targets.detach().cpu().numpy())
+                with torch.no_grad():
+                    for i, (inputs, targets) in enumerate(test_dataloader):
+                        inputs = inputs.to(gpu_device)
+                        out = model(inputs)
+                        all_preds.append(out.detach().cpu().numpy())
+                        all_targets.append(targets.detach().cpu().numpy())
 
-                    if i > 10:
-                        break
+                        if i > 10:
+                            break
                 all_targets = np.concatenate(all_targets)
                 all_preds = np.concatenate(all_preds)
                 validation_loss = roc_auc_score(all_targets, all_preds)
