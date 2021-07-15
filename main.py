@@ -47,8 +47,8 @@ def learn(model,
         passed = 0
         for i, (inputs, targets) in enumerate(train_dataloader):
             passed += 1
-
             inputs, targets = inputs.to(gpu_device), targets.to(gpu_device)
+            model.train()
             out = model(inputs)
             loss = torch.nn.BCELoss()(out, targets)
             loss.backward()
@@ -104,4 +104,6 @@ if __name__ == '__main__':
     dataloader = DataLoader(dataset=dataset, batch_size=None, num_workers=2)
 
     model = CustomRCPS()
+    # for param in model.parameters():
+    #     print(param.shape)
     learn(model=model, train_dataloader=dataloader, test_dataloader=dataloader)

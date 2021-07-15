@@ -69,9 +69,9 @@ class EquiNetBinary(nn.Module):
         self.first_act = IrrepActivationLayer(a=first_a, b=first_b)
 
         # Now add the intermediate layer : sequence of conv, BN, activation
-        self.irrep_layers = []
-        self.bn_layers = []
-        self.activation_layers = []
+        self.irrep_layers = nn.ModuleList()
+        self.bn_layers = nn.ModuleList()
+        self.activation_layers = nn.ModuleList()
         for i in range(1, len(filters)):
             prev_a, prev_b = filters[i - 1]
             next_a, next_b = filters[i]
@@ -152,9 +152,9 @@ class CustomRCPS(nn.Module):
         filters = [reg_in] + list(filters)
 
         # Now add the intermediate layer : sequence of conv, BN, activation
-        self.reg_layers = []
-        self.bn_layers = []
-        self.activation_layers = []
+        self.reg_layers = nn.ModuleList()
+        self.bn_layers = nn.ModuleList()
+        self.activation_layers = nn.ModuleList()
         for i in range(len(filters) - 1):
             prev_reg = filters[i]
             next_reg = filters[i + 1]
