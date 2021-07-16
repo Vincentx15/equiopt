@@ -59,24 +59,26 @@ class ReverseComplementAugmenter(AbstractCoordBatchTransformer):
 
 
 class BatchDataset(Dataset):
-
     def __init__(self, TF, seq_len, is_aug,
-                 seed=0, batch_size=100, ):
+                 seed=0, batch_size=100, split='train',
+                 target_proportion_positives=(1 / 5)):
 
+        # How to transform the genomic coordinate for the input
         inputs_coordstovals = PyfaidxCoordsToVals(
             genome_fasta_path="data/hg19.genome.fa",
             center_size_to_use=seq_len)
+        self.inputs_coordstovals = inputs_coordstovals
 
+        # How to transform the genomic coordinate for the output
         targets_coordstovals = SimpleLookup(
             lookup_file=f"data/{TF}/{TF}_lookup.bed.gz",
             transformation=None,
             default_returnval=0.0)
+        self.targets_coordstovals = targets_coordstovals
 
-        target_proportion_positives = 1 / 5
-
-        pos_bed = f"data/{TF}/{TF}_foreground_train.bed.gz"
-        neg_bed = f"data/{TF}/{TF}_background_train.bed.gz"
-
+        # Which genomic coordinates should be produced, oversampled, shuffled and transformed
+        pos_bed = f"data/{TF}/{TF}_foreground_{split}.bed.gz"
+        neg_bed = f"data/{TF}/{TF}_background_{split}.bed.gz"
         coords_batch_producer = DownsampleNegativesCoordsBatchProducer(
             pos_bed_file=pos_bed,
             neg_bed_file=neg_bed,
@@ -85,10 +87,7 @@ class BatchDataset(Dataset):
             shuffle_before_epoch=True,
             seed=seed)
         coordsbatch_transformer = ReverseComplementAugmenter() if is_aug else None
-
         self.coordsbatch_producer = coords_batch_producer
-        self.inputs_coordstovals = inputs_coordstovals
-        self.targets_coordstovals = targets_coordstovals
         self.coordsbatch_transformer = coordsbatch_transformer
 
     def __getitem__(self, index):
@@ -110,6 +109,9 @@ class BatchDataset(Dataset):
 
     def on_epoch_end(self):
         self.coordsbatch_producer.on_epoch_end()
+
+    def get_loader(self, num_workers=1):
+        return DataLoader(dataset=self, batch_size=None, num_workers=num_workers)
 
 
 if __name__ == '__main__':

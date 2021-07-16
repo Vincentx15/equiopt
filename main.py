@@ -101,10 +101,12 @@ def learn(model,
 if __name__ == '__main__':
     pass
 
-    dataset = BatchDataset(TF='CTCF', seq_len=1000, is_aug=False, batch_size=10)
-    dataloader = DataLoader(dataset=dataset, batch_size=None, num_workers=2)
+    train_dataloader = BatchDataset(TF='CTCF', seq_len=1000, is_aug=False,
+                                    batch_size=10).get_loader(num_workers=2)
+    test_dataloader = BatchDataset(TF='CTCF', seq_len=1000, is_aug=False,
+                                   batch_size=10, split='test').get_loader(num_workers=2)
 
     model = CustomRCPS()
     # for param in model.parameters():
     #     print(param.shape)
-    learn(model=model, train_dataloader=dataloader, test_dataloader=dataloader)
+    learn(model=model, train_dataloader=train_dataloader, test_dataloader=test_dataloader)
