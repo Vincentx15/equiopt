@@ -200,6 +200,18 @@ class PosthocModel(nn.Module):
         return (out + rcout) / 2
 
 
+class AverageModel(nn.Module):
+    def __init__(self, model1, model2):
+        super(PosthocModel, self).__init__()
+        self.model1 = model1
+        self.model2 = model2
+
+    def forward(self, x):
+        out = self.model(x)
+        out2 = self.model2(x)
+        return (out + out2) / 2
+
+
 def post_hoc_from_model(model):
     return PosthocModel(model=model)
 
@@ -218,5 +230,3 @@ if __name__ == '__main__':
 
     posthoc = post_hoc_from_model(regnet)
     y = posthoc(x)
-
-
