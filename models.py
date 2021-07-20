@@ -9,7 +9,10 @@ from equilayers import random_one_hot, reg_action
 class RegBinary(nn.Module):
     def __init__(self,
                  pool_size=40,
-                 pool_strides=20):
+                 pool_strides=20,
+                 seed=None):
+        if seed is not None:
+            torch.manual_seed(seed)
         super(RegBinary, self).__init__()
         model = nn.Sequential(
             nn.Conv1d(in_channels=4, out_channels=16, kernel_size=15),
@@ -41,11 +44,14 @@ class EquiNetBinary(nn.Module):
                  pool_strides=20,
                  out_size=1,
                  placeholder_bn=False,
-                 kmers=1):
+                 kmers=1,
+                 seed=None):
         """
         First map the regular representation to irrep setting
         Then goes from one setting to another.
         """
+        if seed is not None:
+            torch.manual_seed(seed)
         super(EquiNetBinary, self).__init__()
 
         # assert len(filters) == len(kernel_sizes)
@@ -139,11 +145,15 @@ class CustomRCPS(nn.Module):
                  pool_strides=20,
                  out_size=1,
                  placeholder_bn=False,
-                 kmers=1):
+                 kmers=1,
+                 seed=None):
         """
         First map the regular representation to irrep setting
         Then goes from one setting to another.
         """
+        if seed is not None:
+            torch.manual_seed(seed)
+
         super(CustomRCPS, self).__init__()
 
         self.kmers = int(kmers)
@@ -202,14 +212,14 @@ class PosthocModel(nn.Module):
 
 class AverageModel(nn.Module):
     def __init__(self, model1, model2):
-        super(PosthocModel, self).__init__()
+        super(AverageModel, self).__init__()
         self.model1 = model1
         self.model2 = model2
 
     def forward(self, x):
-        out = self.model(x)
+        out1 = self.model1(x)
         out2 = self.model2(x)
-        return (out + out2) / 2
+        return (out1 + out2) / 2
 
 
 def post_hoc_from_model(model):

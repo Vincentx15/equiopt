@@ -13,6 +13,7 @@ def test(model, test_dataloader, gpu_device='cpu', max_validation_steps=None):
     all_preds = list()
     all_targets = list()
     model.eval()
+    model.to(gpu_device)
     with torch.no_grad():
         for j, (inputs, targets) in enumerate(test_dataloader):
             inputs = inputs.to(gpu_device)
@@ -50,9 +51,6 @@ def learn(model,
     :param blob_metrics: Whether to use the usual random validation split or the CATH one along with blobs metrics
     :return:
     """
-    np.random.seed(0)
-    torch.manual_seed(0)
-
     gpu_device = torch.device(f'cuda:{gpu_device}' if torch.cuda.is_available() else 'cpu')
     model.to(gpu_device)
     optimizer = optim.Adam(model.parameters())
@@ -67,6 +65,8 @@ def learn(model,
         passed = 0
         for i, (inputs, targets) in enumerate(train_dataloader):
             passed += 1
+            if passed >= 160 * 50:
+                return best_loss
             inputs, targets = inputs.to(gpu_device), targets.to(gpu_device)
             model.train()
             out = model(inputs)
@@ -96,12 +96,14 @@ def learn(model,
                         epochs_from_best += 1
                         if epochs_from_best > early_stop_threshold:
                             print('This model was early stopped')
+                            model.to('cpu')
                             return best_loss
                 else:
                     model.to('cpu')
                     torch.save(model.state_dict(), save_path)
                     model.to(gpu_device)
         train_dataloader.dataset.on_epoch_end()
+    model.to('cpu')
     return best_loss
 
 
@@ -109,32 +111,43 @@ if __name__ == '__main__':
     pass
 
     # Global options to be argparsed in the end
-    num_workers = 8
+    num_workers = 20
     TF = 'CTCF'
     max_validation_steps = 20
+    early_stop_threshold = 200
+
+    # For TF = MAX expected performance is around 0.98
 
     # Get the data
     train_dataloader = BatchDataset(TF=TF, seq_len=1000, is_aug=False,
-                                    batch_size=10).get_loader(num_workers=num_workers)
+                                    batch_size=100).get_loader(num_workers=num_workers)
     test_dataloader = BatchDataset(TF=TF, seq_len=1000, is_aug=False,
-                                   batch_size=10, split='test').get_loader(num_workers=num_workers)
+                                   batch_size=100, split='test').get_loader(num_workers=num_workers)
 
-    # Define two equivariant models and train them separately. Then average their output
-    model1 = CustomRCPS()
+    # Define an equivariant model
+    model1 = CustomRCPS(seed=0)
     learn(model=model1, train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-          max_validation_steps=max_validation_steps)
-    model2 = CustomRCPS()
+          max_validation_steps=max_validation_steps, early_stop_threshold=early_stop_threshold)
+
+    train_dataloader.dataset.reinitialize_seed()
+    test_dataloader.dataset.reinitialize_seed()
+    # Define a second equivariant models and train it separately. Then average the two outputs
+    model2 = CustomRCPS(seed=1)
     learn(model=model2, train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-          max_validation_steps=max_validation_steps)
+          max_validation_steps=max_validation_steps, early_stop_threshold=early_stop_threshold)
     equi_post_hoc = AverageModel(model1=model1, model2=model2)
 
+    train_dataloader.dataset.reinitialize_seed()
+    test_dataloader.dataset.reinitialize_seed()
     # Define a normal model, and post-hoc it
-    model_3 = RegBinary()
+    model_3 = RegBinary(seed=0)
     learn(model=model_3, train_dataloader=train_dataloader, test_dataloader=test_dataloader,
-          max_validation_steps=max_validation_steps)
+          max_validation_steps=max_validation_steps, early_stop_threshold=early_stop_threshold)
     reg_post_hoc = PosthocModel(model_3)
 
-    # Now let us compare the performance of these two models.
+    # Now let us compare the performance of these models.
+    equi_validation = test(model=model1, test_dataloader=test_dataloader)
     equi_posthoc_validation = test(model=equi_post_hoc, test_dataloader=test_dataloader)
     reg_posthoc_validation = test(model=reg_post_hoc, test_dataloader=test_dataloader)
-    print(equi_posthoc_validation, reg_posthoc_validation)
+    print(equi_validation, equi_posthoc_validation, reg_posthoc_validation)
+    # equi_validation : 0.9354  equi_posthoc_validation : 0.9379 reg_posthoc_validation : 0.9309

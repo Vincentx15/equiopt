@@ -111,16 +111,15 @@ class DownsampleNegativesCoordsBatchProducer(
     KerasSequenceApiCoordsBatchProducer):
 
     def __init__(self, pos_bed_file, neg_bed_file,
-                 target_proportion_positives, **kwargs):
+                 target_proportion_positives, verbose=False, **kwargs):
 
-        print("Reading in positive bed file")
         self.pos_bedfileobj = BedFileObj(bed_file=pos_bed_file)
-        print("Got", len(self.pos_bedfileobj.coords_list),
-              " coords in positive bed file")
-        print("Reading in negative bed file")
         self.neg_bedfileobj = BedFileObj(bed_file=neg_bed_file)
-        print("Got", len(self.neg_bedfileobj.coords_list),
-              " coords in negative bed file")
+        if verbose:
+            print("Got", len(self.pos_bedfileobj.coords_list),
+                  " coords in positive bed file")
+            print("Got", len(self.neg_bedfileobj.coords_list),
+                  " coords in negative bed file")
         self.neg_bedfileobj.assert_sorted()
 
         self.target_proportion_positives = target_proportion_positives
@@ -129,11 +128,12 @@ class DownsampleNegativesCoordsBatchProducer(
              * (self.target_proportion_positives /
                 (1 - self.target_proportion_positives))) /
             len(self.pos_bedfileobj.coords_list)))
-        print("The target proportion of positives of",
-              self.target_proportion_positives, "requires the negative set"
-              + " to be subsampled by a factor of", self.subsample_factor,
-              "which will result in a #neg of",
-              int(len(self.neg_bedfileobj.coords_list) / self.subsample_factor))
+        if verbose:
+            print("The target proportion of positives of",
+                  self.target_proportion_positives, "requires the negative set"
+                  + " to be subsampled by a factor of", self.subsample_factor,
+                  "which will result in a #neg of",
+                  int(len(self.neg_bedfileobj.coords_list) / self.subsample_factor))
         self.last_used_offset = -1
         super(DownsampleNegativesCoordsBatchProducer, self).__init__(**kwargs)
 

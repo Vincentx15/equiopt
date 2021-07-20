@@ -57,6 +57,15 @@ class ReverseComplementAugmenter(AbstractCoordBatchTransformer):
 #         curr_coords = pos_coords + subsampled_neg_coords
 #         return [x for x in curr_coords] + [get_revcomp(x) for x in curr_coords]
 
+def seed_worker(worker_id):
+    worker_seed = torch.initial_seed() % 2 ** 32
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+
+g = torch.Generator()
+g.manual_seed(0)
+
 
 class BatchDataset(Dataset):
     def __init__(self, TF, seq_len, is_aug,
@@ -77,15 +86,19 @@ class BatchDataset(Dataset):
         self.targets_coordstovals = targets_coordstovals
 
         # Which genomic coordinates should be produced, oversampled, shuffled and transformed
-        pos_bed = f"data/{TF}/{TF}_foreground_{split}.bed.gz"
-        neg_bed = f"data/{TF}/{TF}_background_{split}.bed.gz"
+        self.pos_bed = f"data/{TF}/{TF}_foreground_{split}.bed.gz"
+        self.neg_bed = f"data/{TF}/{TF}_background_{split}.bed.gz"
+        self.target_proportion_positives = target_proportion_positives
+        self.batch_size = batch_size
+        self.seed = seed
+        self.shuffle = True
         coords_batch_producer = DownsampleNegativesCoordsBatchProducer(
-            pos_bed_file=pos_bed,
-            neg_bed_file=neg_bed,
-            target_proportion_positives=target_proportion_positives,
-            batch_size=batch_size,
-            shuffle_before_epoch=True,
-            seed=seed)
+            pos_bed_file=self.pos_bed,
+            neg_bed_file=self.neg_bed,
+            target_proportion_positives=self.target_proportion_positives,
+            batch_size=self.batch_size,
+            shuffle_before_epoch=self.shuffle,
+            seed=self.seed)
         coordsbatch_transformer = ReverseComplementAugmenter() if is_aug else None
         self.coordsbatch_producer = coords_batch_producer
         self.coordsbatch_transformer = coordsbatch_transformer
@@ -110,8 +123,24 @@ class BatchDataset(Dataset):
     def on_epoch_end(self):
         self.coordsbatch_producer.on_epoch_end()
 
+    def reinitialize_seed(self, seed=None):
+        """
+        When using several times the same dataset or dataloader,
+           we might want to iterate over the points in the same order
+        """
+        if seed is None:
+            seed = self.seed
+        self.coordsbatch_producer = DownsampleNegativesCoordsBatchProducer(
+            pos_bed_file=self.pos_bed,
+            neg_bed_file=self.neg_bed,
+            target_proportion_positives=self.target_proportion_positives,
+            batch_size=self.batch_size,
+            shuffle_before_epoch=self.shuffle,
+            seed=seed)
+
     def get_loader(self, num_workers=1):
-        return DataLoader(dataset=self, batch_size=None, num_workers=num_workers)
+        return DataLoader(dataset=self, batch_size=None, num_workers=num_workers,
+                          worker_init_fn=seed_worker, generator=g)
 
 
 if __name__ == '__main__':
